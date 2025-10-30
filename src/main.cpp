@@ -7,11 +7,12 @@
 
 int main() {
     // 1. 定义引脚配置
+    // 注意不能为负数
     FpvCarPinConfig myPins = {
-        .fl_pin_a = 4,  .fl_pin_b = 17, // 示例引脚
-        .fr_pin_a = 27, .fr_pin_b = 22, // 示例引脚
-        .bl_pin_a = 10, .bl_pin_b = 9,  // 示例引脚
-        .br_pin_a = 11, .br_pin_b = 5   // 示例引脚
+        .fl_pin_a = 17,  .fl_pin_b = 27, 
+        .fr_pin_a = 22, .fr_pin_b = 23, 
+        .bl_pin_a = 24, .bl_pin_b = 25, 
+        .br_pin_a = 5, .br_pin_b = 6   
     };
 
     try {

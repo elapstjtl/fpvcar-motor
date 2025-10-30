@@ -45,7 +45,7 @@ option(USE_FETCHCONTENT "Use FetchContent to download dependencies" OFF)
 
 if(USE_FETCHCONTENT)
     # 开发环境：使用 FetchContent 下载依赖
-    message(STATUS "Using FetchContent for tl::expected and CLI11")
+    message(STATUS "Using FetchContent")
     include(FetchContent)
     
     # tl::expected

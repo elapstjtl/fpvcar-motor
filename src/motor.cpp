@@ -5,11 +5,15 @@ Motor::Motor(gpiod::chip& chip, int pinA, int pinB, const std::string& consumer)
     pinAOffset = pinA;
     pinBOffset = pinB;
 
+    if (pinAOffset < 0 || pinBOffset < 0) {
+        throw std::invalid_argument("引脚号不能为负数");
+    }
     // v2：使用请求构造器统一请求多条线为输出
     auto builder = chip.prepare_request();
     builder.set_consumer(consumer);
-    gpiod::line_settings settings;
-    settings.set_direction(gpiod::line::direction::OUTPUT);
+    gpiod::line_settings settings; // 创建一个设置对象
+    settings.set_direction(gpiod::line::direction::OUTPUT); // 设置为输出
+    // 请求引脚控制权，并设置为输出
     builder.add_line_settings(static_cast<unsigned int>(pinAOffset), settings);
     builder.add_line_settings(static_cast<unsigned int>(pinBOffset), settings);
 
