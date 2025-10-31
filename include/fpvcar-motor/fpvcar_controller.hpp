@@ -1,5 +1,5 @@
 #pragma once
-#include "motor.hpp"
+#include "fpvcar-motor/motor.hpp"
 #include "config.hpp"
 #include <gpiod.hpp>
 #include <memory> // 用于 std::unique_ptr
@@ -7,6 +7,8 @@
 /**
  * @brief 机器人控制器，管理所有电机
  */
+namespace fpvcar { namespace control {
+
 class FpvCarController {
 public:
     /**
@@ -15,7 +17,7 @@ public:
      * @param config 包含所有 8 个引脚号的配置结构体
      * @param consumer 消费者名称
      */
-    FpvCarController(const std::string& chipName, const FpvCarPinConfig& config, const std::string& consumer);
+    FpvCarController(const std::string& chipName, const fpvcar::config::FpvCarPinConfig& config, const std::string& consumer);
 
     // 默认析构函数，RAII 将自动处理 chip 和所有 motor
     ~FpvCarController() = default;
@@ -35,8 +37,10 @@ private:
     gpiod::chip chip; // GPIO 芯片对象 (RAII)
     
     // 使用智能指针管理 Motor 对象
-    std::unique_ptr<Motor> motorFL; // 前左
-    std::unique_ptr<Motor> motorFR; // 前右
-    std::unique_ptr<Motor> motorBL; // 后左
-    std::unique_ptr<Motor> motorBR; // 后右
+    std::unique_ptr<fpvcar::motor::Motor> motorFL; // 前左
+    std::unique_ptr<fpvcar::motor::Motor> motorFR; // 前右
+    std::unique_ptr<fpvcar::motor::Motor> motorBL; // 后左
+    std::unique_ptr<fpvcar::motor::Motor> motorBR; // 后右
 };
+
+} } // namespace fpvcar::control

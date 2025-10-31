@@ -1,4 +1,6 @@
-#include "motor.hpp"
+#include "fpvcar-motor/motor.hpp"
+
+namespace fpvcar { namespace motor {
 
 Motor::Motor(gpiod::chip& chip, int pinA, int pinB, const std::string& consumer) {
     // 记录 offset，便于后续按 offset 设值
@@ -43,3 +45,5 @@ void Motor::stop() {
     request->set_value(pinAOffset, gpiod::line::value::INACTIVE);
     request->set_value(pinBOffset, gpiod::line::value::INACTIVE);
 }
+
+} } // namespace fpvcar::motor

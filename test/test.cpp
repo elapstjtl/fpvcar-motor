@@ -1,5 +1,5 @@
-#include "fpvcar_controller.hpp"
-#include "config.hpp"
+#include "fpvcar-motor/fpvcar_controller.hpp"
+#include "fpvcar-motor/config.hpp"
 #include <iostream>
 #include <chrono>   // 用于 std::chrono
 #include <thread>   // 用于 std::this_thread::sleep_for
@@ -8,17 +8,12 @@
 int main() {
     // 1. 定义引脚配置
     // 注意不能为负数
-    FpvCarPinConfig myPins = {
-        .fl_pin_a = 17,  .fl_pin_b = 27, 
-        .fr_pin_a = 22, .fr_pin_b = 23, 
-        .bl_pin_a = 24, .bl_pin_b = 25, 
-        .br_pin_a = 5, .br_pin_b = 6   
-    };
-
     try {
         // 2. 初始化 FpvCarController
         // 构造函数会负责打开芯片和请求所有8个引脚
-        FpvCarController fpvcar(GPIO_CHIP_NAME, myPins, GPIO_CONSUMER_NAME);
+        fpvcar::control::FpvCarController fpvcar(fpvcar::config::GPIO_CHIP_NAME,
+                                                 fpvcar::config::DEFAULT_PINS,
+                                                 fpvcar::config::GPIO_CONSUMER_NAME);
 
         std::cout << "fpvcar 初始化成功！" << std::endl;
 

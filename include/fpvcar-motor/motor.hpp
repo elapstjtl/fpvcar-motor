@@ -8,6 +8,8 @@
  * @brief 控制单个直流电机（基于2-pin）
  * 使用 libgpiod v2：通过一次 lines 请求获得句柄，然后按 offset 设值
  */
+namespace fpvcar { namespace motor {
+
 class Motor {
 public:
     /**
@@ -36,3 +38,5 @@ private:
     int pinAOffset{};
     int pinBOffset{};
 };
+
+} } // namespace fpvcar::motor

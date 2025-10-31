@@ -1,13 +1,17 @@
 ## 接口文档（API）
 
-本库对外提供头文件位于 `include/` 目录，核心目标为 CMake 库 `fpvcar_motor`（别名 `fpvcar::motor`）。
+本库对外提供头文件位于 `include/fpvcar-motor/` 目录，核心目标为 CMake 库 `fpvcar_motor`（CMake 别名 `fpvcar::motor`）。
+代码命名空间分层：
+- 配置：`fpvcar::config`
+- 电机（底层）：`fpvcar::motor`
+- 控制器（上层）：`fpvcar::control`
 
-### 常量
+### 常量（均位于 `fpvcar::config`）
 - `GPIO_CHIP_NAME: const char*` 默认 GPIO 芯片路径，示例：`"/dev/gpiochip0"`
 - `GPIO_CONSUMER_NAME: const char*` 默认消费者名称，示例：`"fpvcar-motor"`
 
-### 结构体
-#### `FpvCarPinConfig`
+### 结构体（位于 `fpvcar::config`）
+#### `fpvcar::config::FpvCarPinConfig`
 四个电机（前左/前右/后左/后右）各两根控制引脚（H 桥 IN1/IN2）的编号（offset）。
 
 字段：
@@ -19,7 +23,7 @@
 说明：引脚为 libgpiod 的 offset，不是 BCM/GPIO 物理编号，请根据平台映射配置。
 
 ### 类
-#### `class Motor`
+#### `class fpvcar::motor::Motor`
 单个直流电机（2-pin）。通常无需直接在上层应用使用，由 `FpvCarController` 管理。
 
 构造函数：
@@ -32,11 +36,11 @@
 
 注意：`Motor` 禁止拷贝和赋值；GPIO 资源通过 RAII 在析构时自动释放。
 
-#### `class FpvCarController`
+#### `class fpvcar::control::FpvCarController`
 管理四个电机，提供高级动作接口。
 
 构造函数：
-- `FpvCarController(const std::string& chipName, const FpvCarPinConfig& config, const std::string& consumer)`
+- `FpvCarController(const std::string& chipName, const fpvcar::config::FpvCarPinConfig& config, const std::string& consumer)`
 
 方法：
 - `void moveForward()` 四轮前进
@@ -53,12 +57,14 @@
 ### 使用示例
 #### 最小示例
 ```cpp
-#include "fpvcar_controller.hpp"
-#include "config.hpp"
+#include "fpvcar-motor/fpvcar_controller.hpp"
+#include "fpvcar-motor/config.hpp"
 
 int main() {
-    FpvCarPinConfig pins{17,27, 22,23, 24,25, 5,6};
-    FpvCarController car(GPIO_CHIP_NAME, pins, GPIO_CONSUMER_NAME);
+    fpvcar::config::FpvCarPinConfig pins{17,27, 22,23, 24,25, 5,6};
+    fpvcar::control::FpvCarController car(fpvcar::config::GPIO_CHIP_NAME,
+                                          pins,
+                                          fpvcar::config::GPIO_CONSUMER_NAME);
     car.moveForward();
     car.stopAll();
 }
@@ -66,7 +72,7 @@ int main() {
 
 #### 典型流程
 1) 准备 `FpvCarPinConfig`（确保为有效 offset 且未被占用）
-2) 以芯片名（或路径）与消费者名构造 `FpvCarController`
+2) 以芯片名（或路径）与消费者名构造 `fpvcar::control::FpvCarController`
 3) 调用动作方法；
 4) 退出作用域自动释放资源。
 

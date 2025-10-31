@@ -1,14 +1,16 @@
-#include "fpvcar_controller.hpp"
+#include "fpvcar-motor/fpvcar_controller.hpp"
 #include <stdexcept> // 用于抛出异常
 
-FpvCarController::FpvCarController(const std::string& chipName, const FpvCarPinConfig& config, const std::string& consumer)
+namespace fpvcar { namespace control {
+
+FpvCarController::FpvCarController(const std::string& chipName, const fpvcar::config::FpvCarPinConfig& config, const std::string& consumer)
     : chip(chipName) {
 
     // 初始化四个电机（请求对应的两路输出线）
-    motorFL = std::make_unique<Motor>(chip, config.fl_pin_a, config.fl_pin_b, consumer);
-    motorFR = std::make_unique<Motor>(chip, config.fr_pin_a, config.fr_pin_b, consumer);
-    motorBL = std::make_unique<Motor>(chip, config.bl_pin_a, config.bl_pin_b, consumer);
-    motorBR = std::make_unique<Motor>(chip, config.br_pin_a, config.br_pin_b, consumer);
+    motorFL = std::make_unique<fpvcar::motor::Motor>(chip, config.fl_pin_a, config.fl_pin_b, consumer);
+    motorFR = std::make_unique<fpvcar::motor::Motor>(chip, config.fr_pin_a, config.fr_pin_b, consumer);
+    motorBL = std::make_unique<fpvcar::motor::Motor>(chip, config.bl_pin_a, config.bl_pin_b, consumer);
+    motorBR = std::make_unique<fpvcar::motor::Motor>(chip, config.br_pin_a, config.br_pin_b, consumer);
 }
 
 void FpvCarController::moveForward() {
@@ -48,3 +50,5 @@ void FpvCarController::stopAll() {
     motorBL->stop();
     motorBR->stop();
 }
+
+} } // namespace fpvcar::control
