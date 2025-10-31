@@ -80,33 +80,33 @@ set_property(TARGET libgpiod::gpiodcxx PROPERTY
 
 # --- 3. 定义项目目标 ---
 
-# 源文件（C++）
-set(SOURCES
-    src/main.cpp
-
+# 库源文件（供外部程序链接）
+set(LIB_SOURCES
     src/motor.cpp
     src/fpvcar_controller.cpp
 )
 
-# 创建可执行文件
-add_executable(${PROJECT_NAME} ${SOURCES})
+# 创建库目标
+add_library(fpvcar_motor ${LIB_SOURCES})
+add_library(fpvcar::motor ALIAS fpvcar_motor)
 
-# --- 包含目录 ---
-target_include_directories(${PROJECT_NAME} PRIVATE 
-    include # 项目本地的头文件目录
+# 对外头文件
+target_include_directories(fpvcar_motor
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-# --- 统一的链接库 ---
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    # 无论在哪种模式下，目标名称都保持一致
-    TartanLlama::expected
-    libgpiod::gpiodcxx
-    ${GPIODCXX_LIBRARIES}
-    ${GPIOD_LIBRARIES}
+# 链接库依赖（公共）
+target_link_libraries(fpvcar_motor
+    PUBLIC
+        TartanLlama::expected
+        libgpiod::gpiodcxx
+        ${GPIODCXX_LIBRARIES}
+        ${GPIOD_LIBRARIES}
 )
 
-# --- 4. 安装规则 (Yocto必须) ---
-# 这会将编译好的可执行文件安装到 Yocto 镜像的 /usr/bin 目录
-install(TARGETS ${PROJECT_NAME}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+# --- 4. 默认构建测试可执行（使用库） ---
+add_executable(fpvcar-motor-test
+    test/test.cpp
 )
+target_link_libraries(fpvcar-motor-test PRIVATE fpvcar_motor)

@@ -23,12 +23,20 @@ int main() {
         std::cout << "fpvcar 初始化成功！" << std::endl;
 
         // 3. 执行运动序列
-        std::cout << "向前移动 2 秒..." << std::endl;
+        std::cout << "向前移动 1 秒..." << std::endl;
         fpvcar.moveForward();
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        std::cout << "向后移动 1 秒..." << std::endl;
+        fpvcar.moveBackward();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
 
         std::cout << "左转 1 秒..." << std::endl;
         fpvcar.turnLeft();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        std::cout << "右转 1 秒..." << std::endl;
+        fpvcar.turnRight();
         std::this_thread::sleep_for(std::chrono::seconds(1));
 
         std::cout << "停止所有电机。" << std::endl;

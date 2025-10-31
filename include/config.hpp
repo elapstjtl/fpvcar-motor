@@ -2,7 +2,7 @@
 #include <string>
 
 // GPIO 芯片名称，通常是 "gpiochip0"
-constexpr const char* GPIO_CHIP_NAME = "gpiochip0";
+constexpr const char* GPIO_CHIP_NAME = "/dev/gpiochip0";
 
 // 标识谁在使用这些引脚
 constexpr const char* GPIO_CONSUMER_NAME = "fpvcar-motor";
