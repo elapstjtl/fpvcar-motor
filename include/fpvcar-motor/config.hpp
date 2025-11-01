@@ -19,6 +19,8 @@ struct FpvCarPinConfig {
     // 后右 (Back-Right)
     int br_pin_a = 5;
     int br_pin_b = 6;
+    // STBY引脚，高电平有效
+    int stby_pin = 26;
 };
 
 // 默认 GPIO 芯片名称，通常是 "gpiochip0"
@@ -32,7 +34,8 @@ inline constexpr FpvCarPinConfig DEFAULT_PINS = {
     .fl_pin_a = 17,  .fl_pin_b = 27,
     .fr_pin_a = 22,  .fr_pin_b = 23,
     .bl_pin_a = 24,  .bl_pin_b = 25,
-    .br_pin_a = 5,   .br_pin_b = 6
+    .br_pin_a = 5,   .br_pin_b = 6,
+    .stby_pin = 26
 };
 
 } // namespace config

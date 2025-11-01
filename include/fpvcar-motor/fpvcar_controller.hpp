@@ -19,8 +19,11 @@ public:
      */
     FpvCarController(const std::string& chipName, const fpvcar::config::FpvCarPinConfig& config, const std::string& consumer);
 
-    // 默认析构函数，RAII 将自动处理 chip 和所有 motor
-    ~FpvCarController() = default;
+    /**
+     * @brief 析构函数
+     * 安全关闭：停止所有电机并将STBY引脚设置为低电平以禁用驱动器
+     */
+    ~FpvCarController();
 
     // 禁止拷贝和赋值
     FpvCarController(const FpvCarController&) = delete;
@@ -35,12 +38,16 @@ public:
 
 private:
     gpiod::chip chip; // GPIO 芯片对象 (RAII)
-    
+    std::optional<gpiod::line_request> stby_request;  // STBY的line句柄
+    int stby_pin_offset{};  // STBY引脚号，用于析构时安全关闭
     // 使用智能指针管理 Motor 对象
     std::unique_ptr<fpvcar::motor::Motor> motorFL; // 前左
     std::unique_ptr<fpvcar::motor::Motor> motorFR; // 前右
     std::unique_ptr<fpvcar::motor::Motor> motorBL; // 后左
     std::unique_ptr<fpvcar::motor::Motor> motorBR; // 后右
+
+    // 确保STBY引脚为高电平（使能驱动器）
+    void ensureStbyActive();
 };
 
 } } // namespace fpvcar::control
