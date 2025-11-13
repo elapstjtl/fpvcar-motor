@@ -30,7 +30,15 @@ FpvCarController::FpvCarController(const std::string& chipName, const fpvcar::co
 
 FpvCarController::~FpvCarController() {
     // 安全关闭：停止所有电机
-    stopAll();
+    // 注意：析构函数中获取锁是安全的，因为此时对象正在被销毁
+    // 但调用者应确保没有其他线程正在使用此对象
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
+    
+    // 停止所有电机
+    motorFL->stop();
+    motorFR->stop();
+    motorBL->stop();
+    motorBR->stop();
     
     // 将STBY引脚设置为低电平以禁用驱动器
     if (stby_request.has_value() && stby_pin_offset >= 0) {
@@ -41,12 +49,14 @@ FpvCarController::~FpvCarController() {
 
 void FpvCarController::ensureStbyActive() {
     // 确保STBY引脚为高电平，使能驱动器
+    // 注意：此方法假设调用者已持有 m_hw_mutex 锁
     if (stby_request.has_value() && stby_pin_offset >= 0) {
         stby_request->set_value(stby_pin_offset, gpiod::line::value::ACTIVE);
     }
 }
 
 void FpvCarController::moveForward() {
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
     // 确保STBY引脚为高电平
     ensureStbyActive();
     // 假设所有电机都前进
@@ -57,6 +67,7 @@ void FpvCarController::moveForward() {
 }
 
 void FpvCarController::moveBackward() {
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
     // 确保STBY引脚为高电平
     ensureStbyActive();
     motorFL->reverse();
@@ -66,6 +77,7 @@ void FpvCarController::moveBackward() {
 }
 
 void FpvCarController::turnLeft() {
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
     // 确保STBY引脚为高电平
     ensureStbyActive();
     // 差速转向：左侧轮子前进，右侧轮子后退
@@ -76,6 +88,7 @@ void FpvCarController::turnLeft() {
 }
 
 void FpvCarController::turnRight() {
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
     // 确保STBY引脚为高电平
     ensureStbyActive();
     // 差速转向：左侧轮子后退，右侧轮子前进
@@ -86,6 +99,9 @@ void FpvCarController::turnRight() {
 }
 
 void FpvCarController::stopAll() {
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
+    // 确保STBY引脚为高电平
+    ensureStbyActive();
     motorFL->stop();
     motorFR->stop();
     motorBL->stop();

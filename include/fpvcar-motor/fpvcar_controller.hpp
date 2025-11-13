@@ -3,7 +3,7 @@
 #include "config.hpp"
 #include <gpiod.hpp>
 #include <memory> // 用于 std::unique_ptr
-
+#include <mutex>
 /**
  * @brief 机器人控制器，管理所有电机
  */
@@ -37,6 +37,8 @@ public:
     void stopAll();
 
 private:
+    std::mutex m_hw_mutex; // 硬件互斥锁    
+
     gpiod::chip chip; // GPIO 芯片对象 (RAII)
     std::optional<gpiod::line_request> stby_request;  // STBY的line句柄
     int stby_pin_offset{};  // STBY引脚号，用于析构时安全关闭
