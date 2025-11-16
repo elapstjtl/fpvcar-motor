@@ -1,31 +1,43 @@
 #include "fpvcar-motor/fpvcar_controller.hpp"
-#include <stdexcept> // 用于抛出异常
+#include "libpca9685_agnostic/pca9685.hpp"
+#include "platform/linux/linux_i2c_bus.hpp"
+#include "platform/linux/linux_delay.hpp"
+#include <stdexcept>
 
 namespace fpvcar { namespace control {
 
-FpvCarController::FpvCarController(const std::string& chipName, const fpvcar::config::FpvCarPinConfig& config, const std::string& consumer)
-    : chip(chipName) {
+FpvCarController::FpvCarController(const std::string& i2c_device_path,
+                                const fpvcar::motorconfig::FpvCarChannelConfig& config,
+                                   float pwm_frequency,
+                                   uint8_t pca9685_address) {
 
-    // 初始化STBY引脚为高电平  
-    stby_pin_offset = config.stby_pin;
-    if(stby_pin_offset < 0) {
-        throw std::invalid_argument("STBY引脚号不能为负数");
+    // 步骤1：创建并初始化Linux I2C总线
+    _i2c_bus = std::make_unique<LinuxI2CBus>(i2c_device_path);
+    if (!_i2c_bus->is_valid()) {
+        throw std::runtime_error("无法打开I2C设备: " + i2c_device_path + "。请检查接线和权限。");
     }
-    auto builder = chip.prepare_request();
-    builder.set_consumer(consumer);
-    gpiod::line_settings settings;
-    settings.set_direction(gpiod::line::direction::OUTPUT);
-    builder.add_line_settings(static_cast<unsigned int>(stby_pin_offset), settings);
-    stby_request.emplace(builder.do_request());
-    stby_request->set_value(stby_pin_offset, gpiod::line::value::ACTIVE);
 
+    // 步骤2：创建延迟接口对象
+    _delay = std::make_unique<LinuxDelay>();
 
+    // 步骤3：创建PCA9685驱动实例（构造函数自动初始化）
+    _pwm = std::make_unique<PCA9685>(*_i2c_bus, *_delay, pca9685_address, true);
 
-    // 初始化四个电机（请求对应的两路输出线）
-    motorFL = std::make_unique<fpvcar::motor::Motor>(chip, config.fl_pin_a, config.fl_pin_b, consumer);
-    motorFR = std::make_unique<fpvcar::motor::Motor>(chip, config.fr_pin_a, config.fr_pin_b, consumer);
-    motorBL = std::make_unique<fpvcar::motor::Motor>(chip, config.bl_pin_a, config.bl_pin_b, consumer);
-    motorBR = std::make_unique<fpvcar::motor::Motor>(chip, config.br_pin_a, config.br_pin_b, consumer);
+    // 步骤4：检查初始化状态
+    if (!_pwm->is_initialized()) {
+        throw std::runtime_error("PCA9685初始化失败。请检查I2C连接和设备地址。");
+    }
+
+    // 步骤5：设置PWM频率
+    if (!_pwm->set_pwm_frequency(pwm_frequency)) {
+        throw std::runtime_error("设置PWM频率失败: " + std::to_string(pwm_frequency) + " Hz");
+    }
+
+    // 步骤6：初始化四个电机（每个电机使用3个通道：速度、方向A、方向B）
+    motorFL = std::make_unique<fpvcar::motor::Motor>(*_pwm, config.fl_channel_speed, config.fl_channel_1, config.fl_channel_2);
+    motorFR = std::make_unique<fpvcar::motor::Motor>(*_pwm, config.fr_channel_speed, config.fr_channel_1, config.fr_channel_2);
+    motorBL = std::make_unique<fpvcar::motor::Motor>(*_pwm, config.bl_channel_speed, config.bl_channel_1, config.bl_channel_2);
+    motorBR = std::make_unique<fpvcar::motor::Motor>(*_pwm, config.br_channel_speed, config.br_channel_1, config.br_channel_2);
 }
 
 FpvCarController::~FpvCarController() {
@@ -33,79 +45,91 @@ FpvCarController::~FpvCarController() {
     // 注意：析构函数中获取锁是安全的，因为此时对象正在被销毁
     // 但调用者应确保没有其他线程正在使用此对象
     std::lock_guard<std::mutex> lock(m_hw_mutex);
-    
-    // 停止所有电机
-    motorFL->stop();
-    motorFR->stop();
-    motorBL->stop();
-    motorBR->stop();
-    
-    // 将STBY引脚设置为低电平以禁用驱动器
-    if (stby_request.has_value() && stby_pin_offset >= 0) {
-        stby_request->set_value(stby_pin_offset, gpiod::line::value::INACTIVE);
-    }
-    // stby_request 会通过 RAII 自动释放资源
-}
 
-void FpvCarController::ensureStbyActive() {
-    // 确保STBY引脚为高电平，使能驱动器
-    // 注意：此方法假设调用者已持有 m_hw_mutex 锁
-    if (stby_request.has_value() && stby_pin_offset >= 0) {
-        stby_request->set_value(stby_pin_offset, gpiod::line::value::ACTIVE);
-    }
+    // 停止所有电机
+    if (motorFL) motorFL->stop();
+    if (motorFR) motorFR->stop();
+    if (motorBL) motorBL->stop();
+    if (motorBR) motorBR->stop();
 }
 
 void FpvCarController::moveForward() {
     std::lock_guard<std::mutex> lock(m_hw_mutex);
-    // 确保STBY引脚为高电平
-    ensureStbyActive();
-    // 假设所有电机都前进
-    motorFL->forward();
-    motorFR->forward();
-    motorBL->forward();
-    motorBR->forward();
+    // 所有电机都前进
+    motorFL->forward(SPEED_NORMAL);
+    motorFR->forward(SPEED_NORMAL);
+    motorBL->forward(SPEED_NORMAL);
+    motorBR->forward(SPEED_NORMAL);
 }
 
 void FpvCarController::moveBackward() {
     std::lock_guard<std::mutex> lock(m_hw_mutex);
-    // 确保STBY引脚为高电平
-    ensureStbyActive();
-    motorFL->reverse();
-    motorFR->reverse();
-    motorBL->reverse();
-    motorBR->reverse();
+    motorFL->reverse(SPEED_NORMAL);
+    motorFR->reverse(SPEED_NORMAL);
+    motorBL->reverse(SPEED_NORMAL);
+    motorBR->reverse(SPEED_NORMAL);
 }
 
 void FpvCarController::turnLeft() {
     std::lock_guard<std::mutex> lock(m_hw_mutex);
-    // 确保STBY引脚为高电平
-    ensureStbyActive();
-    // 差速转向：左侧轮子前进，右侧轮子后退
-    motorFL->forward();
-    motorBL->forward();
-    motorFR->reverse();
-    motorBR->reverse();
+    // 差速转向：右侧轮子前进，左侧轮子后退
+    motorFR->forward(SPEED_NORMAL);
+    motorBR->forward(SPEED_NORMAL);
+    motorFL->reverse(SPEED_NORMAL);
+    motorBL->reverse(SPEED_NORMAL);
 }
 
 void FpvCarController::turnRight() {
     std::lock_guard<std::mutex> lock(m_hw_mutex);
-    // 确保STBY引脚为高电平
-    ensureStbyActive();
-    // 差速转向：左侧轮子后退，右侧轮子前进
-    motorFL->reverse();
-    motorBL->reverse();
-    motorFR->forward();
-    motorBR->forward();
-}
+    // 差速转向：左侧轮子前进，右侧轮子后退
 
+    motorFL->forward(SPEED_NORMAL); 
+    motorBL->forward(SPEED_NORMAL);
+    motorFR->reverse(SPEED_NORMAL); 
+    motorBR->reverse(SPEED_NORMAL); 
+}
 void FpvCarController::stopAll() {
     std::lock_guard<std::mutex> lock(m_hw_mutex);
-    // 确保STBY引脚为高电平
-    ensureStbyActive();
     motorFL->stop();
     motorFR->stop();
     motorBL->stop();
     motorBR->stop();
+}
+
+void FpvCarController::moveForwardAndTurnLeft() {
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
+    // 前进并左转：左侧（内侧）25%速度，右侧（外侧）50%速度
+    motorFL->forward(SPEED_TURN_INNER);  // 前左：内侧
+    motorBL->forward(SPEED_TURN_INNER);  // 后左：内侧
+    motorFR->forward(SPEED_NORMAL);  // 前右：外侧
+    motorBR->forward(SPEED_NORMAL);  // 后右：外侧
+}
+
+void FpvCarController::moveForwardAndTurnRight() {
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
+    // 前进并右转：右侧（内侧）25%速度，左侧（外侧）50%速度
+    motorFL->forward(SPEED_NORMAL);  // 前左：外侧
+    motorBL->forward(SPEED_NORMAL);  // 后左：外侧
+    motorFR->forward(SPEED_TURN_INNER);  // 前右：内侧
+    motorBR->forward(SPEED_TURN_INNER);  // 后右：内侧
+}
+
+void FpvCarController::moveBackwardAndTurnLeft() {
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
+    // 后退并左转：左侧（内侧）25%速度，右侧（外侧）50%速度
+    motorFL->reverse(SPEED_TURN_INNER);  // 前左：内侧
+    motorBL->reverse(SPEED_TURN_INNER);  // 后左：内侧
+    motorFR->reverse(SPEED_NORMAL);  // 前右：外侧
+    motorBR->reverse(SPEED_NORMAL);  // 后右：外侧
+}
+
+void FpvCarController::moveBackwardAndTurnRight() {
+    std::lock_guard<std::mutex> lock(m_hw_mutex);
+    // 后退并右转：右侧（内侧）25%速度，左侧（外侧）50%速度
+    motorFL->reverse(SPEED_NORMAL);  // 前左：外侧
+    motorBL->reverse(SPEED_NORMAL);  // 后左：外侧
+    motorFR->reverse(SPEED_TURN_INNER);  // 前右：内侧
+    motorBR->reverse(SPEED_TURN_INNER);  // 后右：内侧
 }
 
 } } // namespace fpvcar::control

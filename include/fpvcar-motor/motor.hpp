@@ -1,42 +1,46 @@
 #pragma once
-#include <gpiod.hpp> // 引入 libgpiod v2 C++ API
+#include <cstdint>
 #include <string>
-#include <vector>
-#include <optional>
+
+// 前向声明（避免循环依赖）
+// PCA9685类的完整定义在libpca9685_agnostic/pca9685.hpp中
+class PCA9685;
 
 /**
- * @brief 控制单个直流电机（基于2-pin）
- * 使用 libgpiod v2：通过一次 lines 请求获得句柄，然后按 offset 设值
+ * @brief 控制单个直流电机（基于PCA9685的3通道H桥控制）
+ * 使用独立的PWM速度通道和两个方向通道控制电机
  */
 namespace fpvcar { namespace motor {
 
 class Motor {
 public:
     /**
-     * @brief 构造函数（v2 API）
-     * @param chip 已打开的 gpiod::chip 对象引用
-     * @param pinA H桥的 IN1 引脚号（offset）
-     * @param pinB H桥的 IN2 引脚号（offset）
-     * @param consumer 消费者名称
+     * @brief 构造函数
+     * @param pwm PCA9685对象引用（必须保持有效直到对象销毁）
+     * @param channelSpeed PWM速度通道（0-100%占空比控制速度）
+     * @param channelA 方向A通道（正转使能，全开/全关）
+     * @param channelB 方向B通道（反转使能，全开/全关）
+     * @note 使用引用而非指针，确保PCA9685对象必须存在
+     * @note PCA9685对象的生命周期必须长于Motor对象
      */
-    Motor(gpiod::chip& chip, int pinA, int pinB, const std::string& consumer);
+    Motor(PCA9685& pwm, uint8_t channelSpeed, uint8_t channelA, uint8_t channelB);
 
     ~Motor() = default;
 
-    // 禁止拷贝和赋值，因为 GPIO 资源是唯一的
+    // 禁止拷贝和赋值
     Motor(const Motor&) = delete;
     Motor& operator=(const Motor&) = delete;
 
     // 控制电机运动
-    void forward();  // 前进 
-    void reverse();  // 后退 
-    void stop();     // 停止/刹车
+    void forward(float speed_percent);  // 前进（速度通道输出PWM，方向A全开，方向B全关）
+    void reverse(float speed_percent);  // 后退（速度通道输出PWM，方向A全关，方向B全开）
+    void stop();     // 停止（速度通道输出0，方向A和B都全关）
 
 private:
-    // v2 中通过 line_request 统一管理多个引脚
-    std::optional<gpiod::line_request> request; // 已请求的 lines 句柄（RAII 自动释放）
-    int pinAOffset{};
-    int pinBOffset{};
+    PCA9685& _pwm;            // PCA9685对象引用
+    uint8_t _channelSpeed;    // PWM速度通道
+    uint8_t _channelA;        // 方向A通道（正转使能）
+    uint8_t _channelB;        // 方向B通道（反转使能）
 };
 
 } } // namespace fpvcar::motor

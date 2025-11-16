@@ -7,17 +7,19 @@ project(fpvcar-motor VERSION 1.0.0 LANGUAGES CXX)
 # =============================================================================
 #
 # 构建模式说明：
-# 1. 开发环境：cmake -DUSE_FETCHCONTENT=ON ..
-#    - 自动下载 tl::expected 和 CLI11 依赖库
-#    - 此时要求系统已安装 libgpiod (sudo apt install libgpiod-dev)
+# 1. 开发环境：cmake ..
+#    - 使用本地 libs/expected git submodule
+#    - 使用本地 libs/libpca9685_agnostic git submodule
 #    - 用于本地开发和测试
 #
 # 2. 生产环境（Yocto）：cmake ..
 #    - 使用 Yocto sysroot 中的所有库
 #    - 需要在 .bb 文件中添加:
-#      DEPENDS += "tl-expected cli11 libgpiod-cxx"
+#      DEPENDS += "tl-expected"
 #    - 用于嵌入式系统构建
 #
+# 注意：本项目现在使用PCA9685模块控制电机，不再依赖libgpiod
+# 注意：所有依赖库都作为 git submodule 位于 libs/ 目录
 # =============================================================================
 
 # 设置 C++ 标准
@@ -36,46 +38,12 @@ if(CMAKE_CROSSCOMPILING)
     message(STATUS "Cross-compiling detected, using optimized flags for Yocto")
 endif()
 
-# 查找 CMake 依赖发现工具
-find_package(PkgConfig REQUIRED)
+# --- 1. 添加依赖库作为子目录（git submodules） ---
+message(STATUS "Adding libs/expected as subdirectory (git submodule)")
+add_subdirectory(libs/expected)
 
-# --- 1. 条件化处理 C++/CMake 依赖 ---
-# 检查是否启用 FetchContent（用于开发环境）
-option(USE_FETCHCONTENT "Use FetchContent to download dependencies" OFF)
-
-if(USE_FETCHCONTENT)
-    # 开发环境：使用 FetchContent 下载依赖
-    message(STATUS "Using FetchContent")
-    include(FetchContent)
-    
-    # tl::expected
-    FetchContent_Declare(
-        expected
-        GIT_REPOSITORY https://github.com/TartanLlama/expected.git
-        GIT_TAG v1.1.0
-    )
-    FetchContent_MakeAvailable(expected)
-    add_library(TartanLlama::expected ALIAS expected)
-else()
-    # 生产/Yocto 环境：使用 Yocto sysroot 中的库
-    message(STATUS "Using find_package for tl::expected and CLI11 (Yocto build)")
-    find_package(expected REQUIRED)
-endif()
-
-# --- 2. 统一处理系统库 libgpiod (始终使用 PkgConfig) ---
-message(STATUS "Locating system dependency: libgpiod (via pkg-config)")
-
-# 查找 C++ 绑定 (libgpiodcxx.pc 会自动拉入 C 库 libgpiod)
-# 无论是在 Yocto 还是本地开发，都依赖系统安装的 .pc 文件
-pkg_check_modules(GPIODCXX REQUIRED libgpiodcxx)
-pkg_check_modules(GPIOD REQUIRED libgpiod)
-
-# 创建一个统一的 INTERFACE 目标，以保持链接目标名称一致
-add_library(libgpiod::gpiodcxx INTERFACE IMPORTED)
-set_property(TARGET libgpiod::gpiodcxx PROPERTY 
-    INTERFACE_INCLUDE_DIRECTORIES ${GPIODCXX_INCLUDE_DIRS})
-set_property(TARGET libgpiod::gpiodcxx PROPERTY 
-    INTERFACE_LINK_LIBRARIES ${GPIODCXX_LIBRARIES})
+message(STATUS "Adding libs/libpca9685_agnostic as subdirectory (git submodule)")
+add_subdirectory(libs/libpca9685_agnostic)
 
 
 # --- 3. 定义项目目标 ---
@@ -99,10 +67,8 @@ target_include_directories(fpvcar_motor
 # 链接库依赖（公共）
 target_link_libraries(fpvcar_motor
     PUBLIC
-        TartanLlama::expected
-        libgpiod::gpiodcxx
-        ${GPIODCXX_LIBRARIES}
-        ${GPIOD_LIBRARIES}
+        tl::expected
+        pca9685_agnostic
 )
 
 # --- 4. 默认构建测试可执行（使用库） ---

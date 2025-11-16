@@ -1,0 +1,6 @@
+[submodule "libs/libpca9685_agnostic"]
+	path = libs/libpca9685_agnostic
+	url = https://github.com/elapstjtl/libpca9685_agnostic.git
+[submodule "libs/expected"]
+	path = libs/expected
+	url = https://github.com/TartanLlama/expected.git
